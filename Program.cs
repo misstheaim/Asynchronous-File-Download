@@ -13,6 +13,24 @@ internal class Program
             trimUrls.Add(url.Trim());
         }
 
+        CancellationTokenSource cancel = new CancellationTokenSource();
+        bool isDownloadFinished = false;
+        Task cancelationTask = Task.Run(() => {
+            Console.WriteLine("Press Esc to cancel downloading.");
+
+            while (Console.ReadKey().Key != ConsoleKey.Escape)
+            {
+
+            }
+
+            if (!isDownloadFinished)
+            {
+                Console.WriteLine("\nEcs key is pressed: canceling downloading!");
+                cancel.Cancel();
+            }
+        });
+
+        Task? commonTask = null;
         try
         {
             WebService service = new WebService();
@@ -20,14 +38,24 @@ internal class Program
             List<Task> tasks = new List<Task>();
             foreach(string url in trimUrls)
             {
-                tasks.Add(service.DownloadFileAsync(url));
+                tasks.Add(service.DownloadFileAsync(url, cancel.Token));
             }
-            await Task.WhenAll(tasks);
-            
+            commonTask = Task.WhenAll(tasks);
+            await commonTask;
         }
-        catch (HttpProtocolException e)
+        catch (HttpRequestException e)
         {
-            Console.WriteLine("\nDownload is failed, error message:\n{0}", e.Message);
+            if (commonTask?.Exception?.InnerExceptions != null && commonTask.Exception.InnerExceptions.Any())
+            {
+                foreach (Exception innerExc in commonTask.Exception.InnerExceptions)
+                {
+                    Console.WriteLine("\nDownload is failed, error message:\n{0}", innerExc.Message);
+                }
+            }
+            else
+            {
+                Console.WriteLine("\nDownload is failed, error message:\n{0}", e.Message);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -35,8 +63,14 @@ internal class Program
         }
         catch (Exception e)
         {
-            Console.WriteLine("\nUnhandled exception, error message:\n{0}", e.Message);
+            Console.WriteLine("\nException was thrown, error message:\n{0}", e.Message);
         }
-        
+        finally
+        {
+            isDownloadFinished = true;
+        }
+
+        Console.WriteLine("\n\n\nPress Esc to exit.");
+        await cancelationTask;
     }
 }

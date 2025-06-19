@@ -6,23 +6,25 @@ internal class WebService
 {
     private HttpClient _httpClient;
 
-    private CancellationTokenSource _tokenSource;
-
     private readonly string saveDirectory = "Files";
 
     public WebService()
     {
         _httpClient = new HttpClient();
-        _tokenSource = new CancellationTokenSource();
         Directory.CreateDirectory(saveDirectory);
-        Task.Run( CancelTask );
     }
 
-    public async Task DownloadFileAsync(string url)
+    public async Task DownloadFileAsync(string url, CancellationToken cancellationToken)
     {
         var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
 
-        response.EnsureSuccessStatusCode();
+        try
+        {
+            response.EnsureSuccessStatusCode();
+        } catch (HttpRequestException e)
+        {
+            throw new HttpRequestException($"Bad request with URL - {url}; Error message:\n{e.Message}");
+        }
 
         string fileName = GetFileName(url);
         long totalBytes = response.Content.Headers.ContentLength ?? -1L;
@@ -35,12 +37,21 @@ internal class WebService
         byte[] buffer = new byte[chunkSize];
         int bytesRead;
 
-        while((bytesRead = await remoteFileStream.ReadAsync(buffer, 0, chunkSize, _tokenSource.Token)) > 0)
+        Progression.AddDownload(new DownloadInfo() { FileName = fileName, totalSize = totalBytes, totalSizeRead = totalBytesRead });
+
+        int i = 0;
+        while((bytesRead = await remoteFileStream.ReadAsync(buffer, 0, chunkSize, cancellationToken)) > 0)
         {
-            await localFileStream.WriteAsync(buffer, 0, bytesRead, _tokenSource.Token);
+            i++;
+            await localFileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
             totalBytesRead += bytesRead;
-            Console.Write("\rBytes read - {0} from - {1}", totalBytesRead, totalBytes);
+            if ((i % 100) == 0)
+            {
+                Progression.UpdateConsoleProgress(new DownloadInfo() { FileName = fileName, totalSize = totalBytes, totalSizeRead = totalBytesRead });
+            }
         }
+        Progression.UpdateConsoleProgress(new DownloadInfo() { FileName = fileName, totalSize = totalBytesRead, totalSizeRead = totalBytesRead });
+        //Progression.RemoveDownload(fileName);
     }
 
     private string GetFileName(string url)
@@ -56,19 +67,5 @@ internal class WebService
             i++;
         }
         return fileName;
-    }
-
-    private void CancelTask()
-    {
-        Console.WriteLine("Press Esc to cancel downloading.");
-
-        while (Console.ReadKey().Key != ConsoleKey.Escape)
-        {
-            
-        }
-
-        Console.WriteLine("\n EEcs key is pressed: canceling downloading!");
-
-        _tokenSource.Cancel();
     }
 }
