@@ -1,16 +1,21 @@
-What
+### What
+
 Provide a description of the goal of these changes
 
-How
+### How
+
 Describe the big picture of the implementation
 
-Affected Area
+### Affected Area
+
 e.g. PD.Domain.Services
 
-PR Checklist
-Build
+### PR Checklist
 
-[x] Build Succeeded
-Unit Tests
+*Build*
 
-[x] X Tests Passed, Y Ignored, Z Failed
+ - [x] Build Succeeded
+
+*Unit Tests*
+
+ - [x] X Tests Passed, Y Ignored, Z Failed
