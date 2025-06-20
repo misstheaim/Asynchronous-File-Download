@@ -8,9 +8,18 @@ internal class WebService
 
     private readonly string saveDirectory = "Files";
 
+    private const int bufferSizeOf8Kb = 8192;
+
+    private const int countOfPackagesToReport = 100;
+
     public WebService()
     {
-        _httpClient = new HttpClient();
+        SocketsHttpHandler socketsHttpHandler = new SocketsHttpHandler
+        {
+            PooledConnectionLifetime = TimeSpan.FromMinutes(15),
+        };
+
+        _httpClient = new HttpClient(socketsHttpHandler);
         Directory.CreateDirectory(saveDirectory);
     }
 
@@ -29,28 +38,27 @@ internal class WebService
         string fileName = GetFileName(url);
         long totalBytes = response.Content.Headers.ContentLength ?? -1L;
         long totalBytesRead = 0;
-        int chunkSize = 8192;
 
         using Stream remoteFileStream = await response.Content.ReadAsStreamAsync();
         using FileStream localFileStream = new FileStream(fileName, FileMode.OpenOrCreate);
 
-        byte[] buffer = new byte[chunkSize];
+        byte[] buffer = new byte[bufferSizeOf8Kb];
         int bytesRead;
 
-        Progression.AddDownload(new DownloadInfo() { FileName = fileName, totalSize = totalBytes, totalSizeRead = totalBytesRead });
+        Progression.AddDownload(new DownloadInfo() { FileName = fileName, TotalSize = totalBytes, TotalSizeRead = totalBytesRead });
 
         int i = 0;
-        while((bytesRead = await remoteFileStream.ReadAsync(buffer, 0, chunkSize, cancellationToken)) > 0)
+        while((bytesRead = await remoteFileStream.ReadAsync(buffer, 0, bufferSizeOf8Kb, cancellationToken)) > 0)
         {
             i++;
             await localFileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
             totalBytesRead += bytesRead;
-            if ((i % 100) == 0)
+            if ((i % countOfPackagesToReport) == 0)
             {
-                Progression.UpdateConsoleProgress(new DownloadInfo() { FileName = fileName, totalSize = totalBytes, totalSizeRead = totalBytesRead });
+                Progression.UpdateConsoleProgress(new DownloadInfo() { FileName = fileName, TotalSize = totalBytes, TotalSizeRead = totalBytesRead });
             }
         }
-        Progression.UpdateConsoleProgress(new DownloadInfo() { FileName = fileName, totalSize = totalBytesRead, totalSizeRead = totalBytesRead });
+        Progression.UpdateConsoleProgress(new DownloadInfo() { FileName = fileName, TotalSize = totalBytesRead, TotalSizeRead = totalBytesRead });
         //Progression.RemoveDownload(fileName);
     }
 

@@ -38,7 +38,7 @@ internal static class Progression
 
             foreach (var download in OpenDownloads)
             {
-                stringInfo.AppendLine($"File: {download.Value.FileName}; Bytes read: {download.Value.totalSizeRead} / {download.Value.totalSize}");
+                stringInfo.AppendLine($"File: {download.Value.FileName}; Bytes read: {download.Value.TotalSizeRead} / {download.Value.TotalSize}");
             }
 
             Console.SetCursorPosition(0, 1);
